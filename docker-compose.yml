@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:15
+    container_name: odoo-db
+    environment:
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: odoo
+      POSTGRES_DB: odoo
+    volumes:
+      # Los datos viven DENTRO de esta carpeta -> portabilidad total.
+      - ./data/db:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U odoo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  odoo:
+    image: odoo:latest
+    container_name: odoo-web
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8069:8069"
+    environment:
+      HOST: db
+      USER: odoo
+      PASSWORD: odoo
+    volumes:
+      # filestore + adjuntos dentro de la carpeta -> portabilidad total.
+      - ./data/odoo:/var/lib/odoo
+      - ./odoo.conf:/etc/odoo/odoo.conf:ro
+      - ./extra-addons:/mnt/extra-addons
+    restart: unless-stopped

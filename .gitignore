@@ -1,0 +1,9 @@
+# Datos reales de Odoo (base de datos + filestore). NO se versionan:
+# son pesados y privados. Viajan copiando la carpeta, no con git.
+data/
+
+# Copias de seguridad
+backups/
+
+# Logs
+*.log
