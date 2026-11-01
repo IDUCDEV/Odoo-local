@@ -14,6 +14,7 @@ Pensado para un freelancer Flutter: clientes, cotizaciones, contratos y facturas
 | Ventas | `sale_management` | Cotizaciones / órdenes de venta |
 | Facturación | `account` | Facturas y pagos |
 | Contratos (OCA) | `contract` | Contratos recurrentes que generan facturas automáticamente |
+| CRM *(por instalar)* | `crm` + `sale_crm` | Pipeline de oportunidades enlazado a las cotizaciones |
 
 ## Uso diario
 
@@ -28,6 +29,27 @@ La primera vez que abras http://localhost:8069 verás el login. Crea la base
 `odoo` desde ahí o entra con la que ya existe. Para gestionar bases de datos:
 http://localhost:8069/web/database/manager (contraseña maestra: `admin`,
 definida en `odoo.conf`).
+
+## Flujo de un cliente
+
+**▶ [GUIA-CLIENTE.md](./GUIA-CLIENTE.md)** — playbook completo paso a paso:
+desde el lead del formulario web hasta la factura cobrada, facturación por
+hitos o con anticipos, contratos de mantenimiento recurrente, plantillas de
+correo y condiciones, errores típicos y ficha imprimible. Pensado para
+Odoo 19 Community en local facturando en **USD con IVA venezolano**.
+
+Resumen de las 3 ideas:
+
+1. **CRM → Cotización → Orden de venta → Factura → Cobro.** Instala la app
+   CRM (`crm`; `sale_crm` va solo) y usa la localización de Venezuela
+   (`l10n_ve`) poniendo el país en la compañía para tener IVA listo.
+2. **Proyectos por hitos**: una orden de venta con una línea por fase y
+   política "cantidades entregadas"; marcas la cantidad entregada de cada fase
+   al terminarla y "Crear factura" solo factura lo entregado. Para el
+   mantenimiento mensual usa la app Contratos (OCA `contract`).
+3. **Community no tiene** firma online de cotizaciones, suscripciones ni
+   Timesheets; lo demás (facturación, impuestos, anticipos, portal, Stripe)
+   funciona igual.
 
 ## Llevar todo a otra máquina (nueva laptop)
 
@@ -60,7 +82,8 @@ definida en `odoo.conf`).
 ├── backups/             # respaldos .sql.gz (NO se versiona)
 ├── start.sh / stop.sh   # arranque y parada
 ├── backup.sh / restore.sh
-└── README.md
+├── README.md
+└── GUIA-CLIENTE.md      # playbook de ventas: lead → cotización → factura
 ```
 
 ## Añadir más módulos de la OCA
