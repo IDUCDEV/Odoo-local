@@ -7,3 +7,7 @@ backups/
 
 # Logs
 *.log
+
+# Bytecode de Python (lo genera Odoo al cargar los modulos)
+__pycache__/
+*.pyc

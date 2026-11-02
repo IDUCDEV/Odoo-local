@@ -12,26 +12,34 @@ Docker portátil) facturando en **USD con IVA venezolano**.
 > ⚠️ Las alícuotas, secuencias y requisitos fiscales (RIF, IVA de exportación,
 > etc.) pueden cambiar; esta guía te dice **dónde** configurarlo en Odoo, no
 > sustituye a un contador.
+>
+> 🆕 **Desde el 19/04/2027** rige la Providencia SNAT/2026/00093 (Gaceta
+> Oficial N° 43.484 del 21/10/2026): las facturas deben emitirse por un medio
+> autorizado y llevar **número de control** y **fecha/hora de emisión**. Ver
+> **[CUMPLIMIENTO-SENIAT.md](./CUMPLIMIENTO-SENIAT.md)** y §1.13.
 
 ---
 
-## §0 Checklist rápido — un cliente nuevo en 10 pasos
+## §0 Checklist rápido — un cliente nuevo en 11 pasos
 
-1. ☐ **Contacto** — Contactos → Nuevo (razón social, RIF, país, USD).
+1. ☐ **Contacto** — Contactos → Nuevo (razón social, **RIF obligatorio**, país, USD).
 2. ☐ **Oportunidad** — CRM → Oportunidades → Nueva (con el presupuesto del lead).
 3. ☐ **Cotización** — desde la oportunidad: "Crear cotización" (plantilla del servicio).
 4. ☐ **Enviar** — botón "Enviar por correo" (o PDF a mano) + programar seguimiento.
 5. ☐ **Confirmar** — cuando el cliente diga que sí: botón "Confirmar" → Orden de venta.
-6. ☐ **Crear factura** — completa, por hitos o con anticipo (§5).
-7. ☐ **Validar** — la factura ya tiene número y asiento contable.
-8. ☐ **Registrar pago** — cuando entre el dinero (banco o efectivo).
-9. ☐ **Contrato** — si hay mantenimiento mensual: app Contratos (OCA).
-10. ☐ **Respaldo** — `./backup.sh` al menos una vez al mes.
+6. ☐ **Crear factura** — completa, por hitos o con anticipo (§3, Paso 5), **en borrador**.
+7. ☐ **Emitir el documento fiscal** — portal web/app del SENIAT: te da el
+   N° de factura fiscal y el N° de control (§1.13).
+8. ☐ **Registrar y validar** — pestaña "Otra información" → SENIAT (Venezuela):
+   medio, N° fiscal, N° de control y fecha/hora → **Validar**.
+9. ☐ **Registrar pago** — cuando entre el dinero (banco o efectivo).
+10. ☐ **Contrato** — si hay mantenimiento mensual: app Contratos (OCA).
+11. ☐ **Respaldo** — `./backup.sh` al menos una vez al mes.
 
 > **Antes de la primera factura real:** crea una base `odoo-demo` (ver README,
 > gestor de bases de datos) y simula un cliente completo de principio a fin:
-> contacto → cotización → hitos → factura → cobro. Te toma 20 minutos y te
-> evita un susto con un cliente de carne y hueso.
+> contacto → cotización → hitos → **emisión fiscal** → factura → cobro. Te toma
+> 20 minutos y te evita un susto con un cliente de carne y hueso.
 
 ---
 
@@ -49,32 +57,64 @@ Docker portátil) facturando en **USD con IVA venezolano**.
    - **País: Venezuela** ← este es el campo que dispara la localización. Al
      guardarlo Odoo te ofrecerá instalar el plan contable de Venezuela
      (`l10n_ve`): cúrrelo, trae cuentas e impuestos preconfigurados.
-3. **Modo desarrollador**: en la parte inferior de Ajustes → "Activar modo
+3. **Instala el módulo fiscal** `iducdev_ve_fiscal` (§1.13): Aplicaciones →
+   Actualizar lista de aplicaciones → "Venezuela - Datos fiscales SENIAT" →
+   Instalar. Añade número de control, fecha/hora de emisión, total en
+   bolívares y la etiqueta RIF en los PDF.
+4. **Modo desarrollador**: en la parte inferior de Ajustes → "Activar modo
    desarrollador". Necesitarás el menú Técnico para el correo y algunas
    configuraciones de esta guía.
 
-### 1.2 Moneda: USD
+### 1.2 Moneda: USD con control en bolívares
 
-- Ajustes → Ajustes generales → **Moneda**: pon **Dólar estadounidense (USD)**
-  como moneda por defecto. Si al crear la compañía salió VES, cámbiala a USD y
-  confirma ("Sí, estoy seguro" cuando pregunte por ajustar tipos de cambio).
-- Todo lo demás (cotizaciones, facturas, contratos) va en USD; no necesitas
-  activar multi-moneda a menos que quieras facturar en otra moneda.
+Hay dos formas válidas de llevar la contabilidad. **Elige una y no la cambies
+después**: cambiar la moneda de la compañía con asientos ya registrados está
+bloqueado en Odoo (habría que borrar los apuntes primero).
+
+**Opción A — Libros en USD (lo que tienes hoy).** Es la más cómoda si cobras
+casi todo en divisas y tu contador acepta los libros en dólares:
+
+- Ajustes → Ajustes generales → **Moneda**: **Dólar estadounidense (USD)**.
+- Activa **multi-moneda** y deja el **VES** con tipo de cambio actualizado:
+  Ajustes → Contabilidad → Monedas → VES → modo **"Tasa manual"** y actualiza
+  la tasa (o cárgala a mano cada vez que factures).
+- Cada factura en USD muestra además, al pie, el **tipo de cambio aplicado y
+  el total en bolívares** (lo pone el módulo `iducdev_ve_fiscal`, §1.13). Eso
+  cubre el art. 8.12 de la Providencia.
+
+**Opción B — Libros en VES (recomendada para cumplir sin discusiones).** Es
+la moneda funcional del país y evita que el contador tenga que reconvertir
+todo:
+
+- Ajustes → Ajustes generales → **Moneda**: **Bolívar (VES)**.
+- Puedes **seguir cotizando y facturando en USD**: activa multi-moneda y elige
+  USD en la cotización. Odoo guarda el asiento en VES al tipo de cambio del día
+  y la factura conserva el importe en dólares.
+
+> **Pendiente de decidir (D1).** Hoy la base está en **USD (Opción A)**. Si tu
+> contador pide libros en bolívares, hay que migrar a la Opción B **antes de
+> emitir facturas reales**: es un cambio de configuración de la compañía, no
+> de los datos, pero no se puede deshacer con apuntes ya validados.
 
 ### 1.3 Impuestos
 
-- Ve a Facturación → Configuración → Impuestos. Con `l10n_ve` deberías tener:
-  - **IVA 16 %** (general) → es el que usarás en casi todo.
-  - **IVA adicional** → verifica que la alícuota sea la vigente para tu caso
-    (subió al 34 % en 2024 para ciertos sectores); si no lo usas, no lo toques.
-- Crea además un impuesto **"Exento (exportación de servicios)"** con
-  cantidad 0 %, tipo Porcentaje, para clientes del exterior (los servicios de
-  software que se prestan fuera de Venezuela suelen ir exentos; confírmalo con
-  tu contador):
-  - Facturación → Impuestos → Nuevo → Nombre: `Exento (exportación)`,
-    Tipo: `Porcentaje de importe`, Cantidad: `0`.
-- Asigna por defecto el IVA 16 % en tus productos (§1.7) y cámbialo a Exento
-  línea por línea cuando el cliente sea del exterior.
+- Ve a Facturación → Configuración → Impuestos. `l10n_ve` trae **0 %, 8 %,
+  12 % y 22 %** (el 22 % viene marcado como impuesto de venta por defecto).
+- ⚠️ **Verifica la alícuota con tu contador antes de facturar.** La guía
+  anterior hablaba de un 16 % general; la localización instalada no lo trae.
+  Si la alícuota vigente para tus servicios es otra:
+  - Facturación → Impuestos → abre el impuesto → **Cantidad** → corrige el
+    porcentaje → guardar. Se recalcula en las facturas nuevas, no en las ya
+    validadas.
+- Deja **un solo impuesto de venta por defecto** y asígnalo en los productos
+  (§1.7), para no elegir impuesto en cada línea.
+- Para clientes del exterior **no crees un impuesto nuevo**: `l10n_ve` ya trae
+  uno al 0 % (aparece como `0% EXEMPT`, tipo **venta**). Renómbralo para que se
+  entienda:
+  - Facturación → Impuestos → abre `0% EXEMPT` (el de **venta**, no el de
+    compra) → Nombre: `Exento (exportación)` → Cantidad: `0` → guardar.
+- Úsalo **línea por línea** cuando el cliente sea del exterior (§3, Paso 5-F).
+  En el PDF esas líneas saldrán marcadas con **(E)** (art. 8.7, §1.13).
 
 ### 1.4 Cuentas bancarias y efectivo
 
@@ -112,11 +152,11 @@ Ventas → Productos → **Nuevo**. Crea estos 5 con tipo **Servicio**:
 
 | Código | Producto | Servicio en iducdev.org | Unidad | Política de facturación | Impuesto | Precio por defecto |
 |---|---|---|---|---|---|---|
-| `APP-FLUTTER` | App móvil Flutter | Desarrollo Mobile (1-3 meses) | Unidad | **Cantidades entregadas** | IVA 16 % | déjalo en 0, el precio va en la cotización |
-| `WEB-NEXT` | Web App Next.js | Landing / Web App (1-4 sem) | Unidad | **Cantidades entregadas** | IVA 16 % | 0 |
-| `BACK-SUPA` | Backend Supabase | Backend, APIs y BD (1-3 sem) | Unidad | **Cantidades entregadas** | IVA 16 % | 0 |
-| `CONS-HORA` | Consultoría por hora | Asesoría técnica / arquitectura | Hora | **Cantidades entregadas** | IVA 16 % | tu tarifa (ej. 25 $/h) |
-| `MANT-MES` | Mantenimiento mensual | Soporte Continuo post-lanzamiento | Mes | **Cantidades pedidas** | IVA 16 % | tu cuota (ej. 50 $/mes) |
+| `APP-FLUTTER` | App móvil Flutter | Desarrollo Mobile (1-3 meses) | Unidad | **Cantidades entregadas** | IVA (§1.3) | déjalo en 0, el precio va en la cotización |
+| `WEB-NEXT` | Web App Next.js | Landing / Web App (1-4 sem) | Unidad | **Cantidades entregadas** | IVA (§1.3) | 0 |
+| `BACK-SUPA` | Backend Supabase | Backend, APIs y BD (1-3 sem) | Unidad | **Cantidades entregadas** | IVA (§1.3) | 0 |
+| `CONS-HORA` | Consultoría por hora | Asesoría técnica / arquitectura | Hora | **Cantidades entregadas** | IVA (§1.3) | tu tarifa (ej. 25 $/h) |
+| `MANT-MES` | Mantenimiento mensual | Soporte Continuo post-lanzamiento | Mes | **Cantidades pedidas** | IVA (§1.3) | tu cuota (ej. 50 $/mes) |
 
 Detalles que no te saltes:
 
@@ -171,6 +211,50 @@ Toggl o una hoja de cálculo). La app **Proyecto** (`project`) sí es
 Community y te puede servir para seguir tareas por cliente/hito, pero no
 factura sola: la facturación sale siempre de Ventas.
 
+### 1.13 Cumplimiento SENIAT (Providencia SNAT/2026/00093)
+
+La **Gaceta Oficial N° 43.484 del 21/10/2026** publicó la Providencia
+SNAT/2026/00093. Entra en vigencia a los **180 días continuos**, es decir el
+**19 de abril de 2027**. Desde esa fecha la factura debe emitirse por un medio
+autorizado y llevar número de control, número de factura, fecha y hora de
+emisión, tipo de cambio y total en bolívares.
+
+**La estrategia es la "Opción A": el documento fiscal lo emite el SENIAT, Odoo
+solo lo registra.**
+
+1. **Emite gratis por el portal del SENIAT.** La Providencia permite el
+   **portal web / app del SENIAT** como medio de emisión gratuito (art. 4.1.1).
+   No necesitas imprenta digital ni máquina fiscal para empezar.
+2. **Instala el módulo `iducdev_ve_fiscal`** (ya está en `extra-addons/`):
+   Aplicaciones → Actualizar lista → "Venezuela - Datos fiscales SENIAT" →
+   Instalar. Añade a la factura una pestaña **Otra información → SENIAT
+   (Venezuela)** con medio de emisión, N° Factura Fiscal, N° de Control, fecha
+   y hora de emisión y tipo de cambio.
+3. **Flujo por factura** (es el modo E de §3, Paso 5):
+   - Crea la factura en Odoo y déjala en **borrador**.
+   - Emítela en el portal del SENIAT con los mismos datos (cliente, RIF,
+     líneas, IVA). El portal te devuelve **N° de factura** y **N° de control**.
+   - Vuelve a Odoo y registra esos números en la pestaña **SENIAT
+     (Venezuela)**, más la fecha y hora exactas.
+   - **Valida** la factura y adjunta el PDF del SENIAT al chatter.
+4. **Activa la exigencia cuando empieces.** Por defecto el módulo **no bloquea**
+   la validación, para que puedas seguir trabajando con normalidad hasta 2027.
+   Cuando ya estés emitiendo por el portal: Ajustes → Contabilidad → **"Exigir
+   datos fiscales SENIAT al validar"**. Desde ahí, una factura sin número de
+   control no se puede validar.
+5. **Número de control**: dos dígitos de identificador + hasta ocho
+   secuenciales (ej. `00 00000001`). Debe ser **único y consecutivo por
+   emisor**; el módulo rechaza duplicados y formatos inválidos.
+6. **Contingencia** (art. 7): si el portal no funciona, emite en los formatos de
+   contingencia autorizados, marca el medio como **"Formatos de contingencia"**
+   en Odoo y el módulo te deja una **actividad recordatorio** para remitir los
+   documentos al día siguiente.
+7. **RIF**: el módulo hace que los PDF digan **"RIF"** en vez de "Tax ID".
+   Rellena el RIF en la compañía y en **todos** los contactos (§3, Paso 1).
+
+El detalle completo (checklist, trámites, calendario y contingencias) está en
+**[CUMPLIMIENTO-SENIAT.md](./CUMPLIMIENTO-SENIAT.md)**.
+
 ---
 
 ## §2 Glosario mínimo para un dev
@@ -180,6 +264,12 @@ factura sola: la facturación sale siempre de Ventas.
 | **Cotización** (Quotation) | Propuesta de precio al cliente. Se puede enviar, imprimir y modificar hasta que la confirmas. |
 | **Orden de venta** (SO) | Cotización **confirmada**: ya hay compromiso de compra y dispara la facturación. |
 | **Factura** | Documento fiscal. En **borrador** no vale; al **Validar** cobra número (secuencia) y crea el asiento contable. |
+| **N° de Control** | Numeración fiscal que exige el SENIAT (2 dígitos + hasta 8 secuenciales), distinta de la secuencia interna de Odoo. |
+| **N° Factura Fiscal** | Número que asigna el medio de emisión autorizado (portal del SENIAT, imprenta digital o máquina fiscal). |
+| **Medio de emisión** | Cómo se emitió el documento fiscal: portal del SENIAT, imprenta digital, máquina fiscal o formatos de contingencia. |
+| **RIF** | Registro de Información Fiscal del cliente/empresa. En Odoo es el campo "NIF" del contacto. |
+| **Alícuota** | Porcentaje de IVA aplicado a una línea. |
+| **Exportación de servicios** | Servicio prestado desde Venezuela y consumido fuera, facturado y cobrado en divisa → IVA 0 % y marca `(E)`. |
 | **Asiento** | Registro contable que genera la factura validada en el libro mayor. |
 | **Secuencia** | Numeración automática (ej. `INV/2026/0001`). No la edites a mano. |
 | **Anticipo** (Down payment) | Factura parcial por adelantado que luego se descuenta de la factura final. |
@@ -214,7 +304,9 @@ Contactos → Nuevo:
 
 - **Nombre**: razón social o nombre completo del cliente.
 - **RIF/NIF** en el campo de identificación fiscal (`V-12345678`,
-  `J-12345678-9`, `E-…` para extranjeros).
+  `J-12345678-9`, `E-…` para extranjeros). Es **obligatorio** para la factura
+  fiscal (art. 8.4 de la Providencia): sin RIF el portal del SENIAT no emite.
+  En el PDF sale como **RIF** gracias al módulo `iducdev_ve_fiscal`.
 - **País** (Venezuela o el del exterior; de aquí sale el impuesto por
   posición fiscal).
 - Email y teléfono (el email es el que usará el portal).
@@ -301,12 +393,79 @@ Cada fase es su **propio** contacto-cotización-SO-factura. Más simple de leer
 y de cobrar; la oportunidad del CRM puede tener varias cotizaciones asociadas.
 Úsalo si cada fase se vende y se aprueba por separado.
 
+#### E. Emisión fiscal SENIAT (aplica a los modos A, B, C y D)
+
+Desde el **19/04/2027** toda factura de cliente tiene que estar emitida por un
+medio autorizado antes de darla por buena. Con la estrategia del §1.13, cada
+factura sigue este orden:
+
+1. **Crear la factura** en Odoo como siempre (modo A, B, C o D) y dejarla en
+   **borrador**. No la valides todavía.
+2. **Emitirla en el portal web / app del SENIAT** con los datos del cliente
+   (razón social, RIF, líneas, alícuota). El portal te da el **N° de factura
+   fiscal** y el **N° de control**.
+3. **Volver a Odoo** → pestaña **Otra información → SENIAT (Venezuela)**:
+   - Medio de emisión → `Portal web / App SENIAT`.
+   - N° Factura Fiscal → el que dio el portal.
+   - N° de Control → el que dio el portal (formato `00 00000001`).
+   - Fecha y hora de emisión fiscal → la del portal, **con hora**.
+   - Si la factura está en USD, revisa el **tipo de cambio aplicado** (por
+     defecto toma el de Odoo a la fecha de la factura; cámbialo si el portal
+     usó otro).
+4. **Validar** la factura. El PDF de Odoo sale con el N° de control, el N°
+   fiscal, la fecha/hora, el total en bolívares y la frase legal: es tu
+   **copia comercial**.
+5. **Adjuntar el PDF del SENIAT** al chatter y enviar al cliente **ese**
+   documento (o ambos, dejando claro cuál es el fiscal).
+
+> El documento fiscal válido es el del SENIAT. El PDF de Odoo es la copia
+> comercial y sirve para tu gestión, no para el crédito fiscal del cliente.
+
 > Regla práctica: para un app Flutter cobra **anticipo 30-50 % + hitos** (B+C);
 > para una web pequeña, **todo de golpe** (A); para mantenimiento, **contrato**
 > (Paso 7).
 
+#### F. Cliente extranjero (exportación de servicios)
+
+Un servicio de software prestado desde Venezuela y **consumido fuera del país**
+se trata como exportación: IVA **0 %** y línea marcada **(E)**. Para que aplique
+deben cumplirse las tres condiciones (confírmalas con tu contador):
+
+1. El cliente está **domiciliado en el exterior** (su dirección fiscal, no una
+   filial en Venezuela).
+2. El servicio se **usa o aprovecha fuera de Venezuela**.
+3. Se **factura y se cobra en divisa** (USD).
+
+Pasos:
+
+1. **Contacto** (Paso 1): país real del cliente y su **ID fiscal extranjero**
+   (EIN, VAT, pasaporte) en el campo NIF. Ojo: el PDF lo imprimirá bajo la
+   etiqueta **"RIF"**, porque es la etiqueta venezolana; es correcto pero puede
+   sorprender al cliente.
+2. **Impuesto**: en todas las líneas, `Exento (exportación)` (§1.3). Si dejas
+   el IVA general, Odoo te muestra un **aviso rojo** en la pestaña SENIAT (el
+   módulo no bloquea, solo avisa).
+3. **Factura en USD**: el módulo añade al pie el **tipo de cambio aplicado y el
+   total en bolívares** (art. 8.12).
+4. **Emisión fiscal** (modo E): el portal del SENIAT emite también documentos
+   de exportación y necesitas su N° de factura y N° de control igual que
+   siempre. **Prueba antes** cómo identifica el portal a un cliente sin RIF
+   venezolano: puede pedir el ID fiscal extranjero o la opción "consumidor
+   final".
+5. **Cobro** (Paso 6): registra el pago en el diario en USD. Un cliente
+   extranjero **no retiene ISLR ni IVA** venezolanos. Si el banco te cobra
+   comisión, regístrala como **cargo bancario**, no como nota de crédito.
+6. **Diferencia en cambio**: solo aparece si tus libros están en VES (Opción B
+   de §1.2): la factura se registra a la tasa del día y el cobro a la del día
+   del pago; Odoo crea solo el asiento en el diario *Exchange Difference*.
+
+**Guarda la prueba de exportación**: contrato, factura en USD, comprobante del
+pago en divisa y domicilio del cliente. Si el servicio se consume en Venezuela
+(por ejemplo, una filial local del cliente), **deja de ser exportación** y
+lleva IVA normal.
+
 **Cancelación a mitad de camino**: no borres la orden de venta. Factura lo ya
-entregado (§5.B marca las fases completadas y crea la factura), cancela las
+entregado (§3, Paso 5-B marca las fases completadas y crea la factura), cancela las
 líneas pendientes (o cancela la SO si no se entregó nada) y cierra la
 oportunidad como `Perdida` con motivo. Lo que ya se cobró no se devuelve salvo
 lo que digan tus condiciones generales (§4.3).
@@ -319,8 +478,9 @@ lo que digan tus condiciones generales (§4.3).
 - Para conciliar con el banco: importa el extracto (Facturación →
   Conciliación bancaria) y empareja los pagos. Sin extracto, no pasa nada:
   el pago ya quedó registrado.
-- Facturas emitidas a clientes del exterior: el mismo flujo; solo cambia el
-  impuesto a **Exento** en la cotización.
+- Facturas emitidas a clientes del exterior: ver el **modo F del Paso 5**
+  (exportación: impuesto 0 %, marca `(E)`, sin retenciones y con prueba de
+  exportación guardada).
 - **Retenciones (Venezuela)**: si facturas a una empresa, es muy probable que
   te **retengan ISLR** (y a veces IVA, si el cliente es gran contribuyente).
   Odoo lo modela como **impuestos de retención** (Facturación → Impuestos →
@@ -335,8 +495,14 @@ lo que digan tus condiciones generales (§4.3).
   dinero de un diario a otro, usa el botón **Transferencias internas** de
   Facturación para no perder el rastro.
 - Para enviar la factura al cliente: **Enviar por correo** (portal) o PDF por
-  tu canal. Activa en Ajustes → Facturación los **campos legales** (dirección,
-  teléfono, RIF) si quieres que salgan impresos.
+  tu canal. Adjunta siempre el **PDF del SENIAT** (es el documento fiscal) y,
+  si quieres, el PDF de Odoo como copia comercial. Activa en Ajustes →
+  Facturación los **campos legales** (dirección, teléfono, RIF) si quieres que
+  salgan impresos.
+- **Notas de crédito**: mismo flujo que la factura. Créala en Odoo, emítela en
+  el portal del SENIAT (te da su propio N° de control), registra los datos en
+  la pestaña **SENIAT (Venezuela)** y valida. El módulo valida que el número
+  de control no se repita.
 
 ### Paso 7 — Soporte continuo → contrato recurrente
 
@@ -350,10 +516,14 @@ automatizarla con la app **Contratos** (OCA `contract`, ya instalada):
      adelantado) o pospago (cobra al mes vencido), como prefieras.
    - **Líneas**: producto `MANT-MES`, cantidad 1, precio de la cuota.
 2. Guarda. **Crear facturas** (botón del contrato) genera la factura en
-   borrador; valida y regístrale el pago como siempre. También puedes dejar
-   la **tarea programada** de generación automática activa (Configuración →
-   Tareas programadas → "Generación de facturas de contratos") para que salga
-   sola cada mes; revisa de vez en cuando que las facturas salgan bien.
+   borrador; **emítela en el portal del SENIAT**, registra el N° de control y
+   la fecha/hora en la pestaña **SENIAT (Venezuela)**, valida y regístrale el
+   pago como siempre. También puedes dejar la **tarea programada** de
+   generación automática activa (Configuración → Tareas programadas →
+   "Generación de facturas de contratos") para que la factura salga sola cada
+   mes; revisa de vez en cuando que las facturas salgan bien y **no olvides la
+   emisión fiscal de cada una** (la generación automática no emite en el
+   SENIAT).
 3. Cuando el cliente quiera bajar el servicio o cancelar, pon **fin** al
    contrato en su fecha de término (no lo borres: deja el histórico).
 
@@ -453,7 +623,7 @@ automatizarla con la app **Contratos** (OCA `contract`, ya instalada):
 | Qué pasó | Cómo se arregla |
 |---|---|
 | Factura **validada** con dato malo | **Reversar** (crea una nota de crédito que la anula) y crea la factura correcta. Nunca borres ni edites la secuencia. |
-| Factura validada con **impuesto equivocado** (ej. IVA 16 % a un cliente del exterior) | Nota de crédito de la factura completa y reemitir con **Exento (exportación)**. |
+| Factura validada con **impuesto equivocado** (ej. IVA general a un cliente del exterior) | Nota de crédito de la factura completa y reemitir con **Exento (exportación)**. |
 | Cotización que el cliente **rechazó** | En la cotización: acción ⚙ → **Cancelar**. La oportunidad va a `Perdida` con motivo. |
 | SO cancelada por equivocación | No se recicla: crea una nueva cotización (el histórico se conserva). |
 | **Contacto duplicado** | Contactos → selecciona los dos → fusionar (acción de agrupar/merge) o borra el malo si no tiene facturas. |
@@ -461,6 +631,11 @@ automatizarla con la app **Contratos** (OCA `contract`, ya instalada):
 | Cobro **duplicado** (registaste el pago dos veces) | Facturación → Pagos → Reembolsar/eliminar el duplicado y conciliar de nuevo. |
 | Se cayó el Odoo a mitad de validar | Entra de nuevo y revisa Facturación → Facturas: casi siempre quedó en borrador o validada; no la dupliques sin mirar. |
 | Email "enviado" pero no llegó | Mira Ajustes → Técnico → Mensajes/Correo (falló el SMTP). Corrige el servidor y reenvía; o imprime el PDF. |
+| Al validar sale **"falta el número de control"** | Activaste la exigencia SENIAT (§1.13). Emite primero la factura en el portal del SENIAT y registra N° de control + fecha/hora en **Otra información → SENIAT (Venezuela)**. |
+| **"El número de control ya está asignado a otra factura"** | El N° de control debe ser único y consecutivo por emisor. Revisa si copiaste el número de otra factura o si el portal te dio uno repetido (vuelve a emitir). |
+| **"El número de control no es válido"** | Formato: 2 dígitos de identificador + hasta 8 secuenciales (`00 00000001`). Quita letras, guiones raros o espacios internos. |
+| El PDF de Odoo **no muestra** el total en bolívares | La factura está en VES (no hace falta el bloque) o el tipo de cambio quedó en 0. Revisa **Tipo de cambio aplicado** en la pestaña SENIAT y guarda. |
+| Emití en **contingencia** y olvidé remitir los documentos | El módulo deja una **actividad** al día siguiente ("Remitir documento de contingencia al SENIAT/imprenta"). Revísala en el chatter de la factura. |
 
 ---
 
@@ -471,7 +646,7 @@ automatizarla con la app **Contratos** (OCA `contract`, ya instalada):
 | Pipeline CRM, actividades, reuniones | ✅ | — |
 | Cotizaciones, plantillas, órdenes de venta | ✅ | — |
 | Facturación, impuestos, pagos, notas de crédito | ✅ | — |
-| Anticipos y facturación por hitos manuales | ✅ (§5) | — |
+| Anticipos y facturación por hitos manuales | ✅ (§3, Paso 5) | — |
 | Contratos recurrentes | ✅ OCA `contract` | Suscripciones (Enterprise) |
 | Portal del cliente y cobro online (Stripe/PayPal) | ✅ | — |
 | Firma/aceptación de la cotización con un clic | ❌ | Confirmas tú manualmente |
@@ -485,15 +660,15 @@ automatizarla con la app **Contratos** (OCA `contract`, ya instalada):
 FICHA DE CLIENTE — IDUCDEV
 ─────────────────────────────────────────────────
 Cliente: ____________________  RIF: ____________
-País: __________  Moneda: USD  ¿Exportación? S / N
+País: __________  Moneda: USD / VES  ¿Exportación? S / N
 Contacto email: ______________  Tel: ____________
 Condiciones de pago: __________  Anticipo: ____ %
 
 SERVICIO:  App Flutter / Web Next.js / Backend Supabase / Otro: ________
 PRESUPUESTO TOTAL: ________ USD
-IMPUESTO:  IVA 16 % / Exento (exportación)
+IMPUESTO:  IVA ___ % / Exento (exportación)
 
-Contacto en Odoo: ☐ creado (Paso 1)
+Contacto en Odoo: ☐ creado (Paso 1)   RIF cargado ☐
 Oportunidad CRM: ☐ creada  etapa: ____________
 Cotización N°: ____  enviada ☐  fecha: ________
 Confirmada (SO): ☐  fecha: ________
@@ -507,6 +682,18 @@ Retención (cliente empresa): ☐ ISLR ____ %   ☐ IVA ____ %
 Gastos externos (app Compras): ☐ registrados  ☐ re-invertidos en la SO
 Backup mensual: ☐
 Notas: ________________________________________
+```
+
+### 7.1 Control fiscal por factura (SENIAT)
+
+Rellena una fila por cada factura emitida. Sirve para cuadrar el consecutivo
+con el portal del SENIAT.
+
+```
+FACTURA | Fecha/hora emisión | Medio | N° Factura Fiscal | N° de Control | Total USD | Tasa | Total VES | PDF SENIAT adjunto
+________|___________________|_______|__________________|_______________|__________|______|___________|___________________
+________|___________________|_______|__________________|_______________|__________|______|___________|___________________
+________|___________________|_______|__________________|_______________|__________|______|___________|___________________
 ```
 
 ---

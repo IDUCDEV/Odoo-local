@@ -14,7 +14,17 @@ Pensado para un freelancer Flutter: clientes, cotizaciones, contratos y facturas
 | Ventas | `sale_management` | Cotizaciones / órdenes de venta |
 | Facturación | `account` | Facturas y pagos |
 | Contratos (OCA) | `contract` | Contratos recurrentes que generan facturas automáticamente |
+| Localización Venezuela | `l10n_ve` | Plan contable e impuestos venezolanos (0 / 8 / 12 / 22 %) |
+| **Datos fiscales SENIAT** | `iducdev_ve_fiscal` | N° de control, fecha/hora de emisión, total en bolívares, marca `(E)` y etiqueta RIF |
 | CRM *(por instalar)* | `crm` + `sale_crm` | Pipeline de oportunidades enlazado a las cotizaciones |
+
+> ⚠️ **19/04/2027** — entrada en vigencia de la Providencia Administrativa
+> SNAT/2026/00093 (Gaceta Oficial N° 43.484 del 21/10/2026). Desde esa fecha
+> las facturas deben emitirse por un medio autorizado y llevar número de
+> control, fecha y hora de emisión. Estrategia adoptada: **portal/app del
+> SENIAT (gratuito) para emitir + Odoo para gestionar**, con el módulo
+> `iducdev_ve_fiscal` registrando los datos. Ver
+> **[CUMPLIMIENTO-SENIAT.md](./CUMPLIMIENTO-SENIAT.md)**.
 
 ## Uso diario
 
@@ -43,6 +53,8 @@ Resumen de las 3 ideas:
 1. **CRM → Cotización → Orden de venta → Factura → Cobro.** Instala la app
    CRM (`crm`; `sale_crm` va solo) y usa la localización de Venezuela
    (`l10n_ve`) poniendo el país en la compañía para tener IVA listo.
+   **La factura fiscal se emite en el portal del SENIAT** y Odoo registra el
+   N° de control y la fecha/hora con `iducdev_ve_fiscal` (§1.13 de la guía).
 2. **Proyectos por hitos**: una orden de venta con una línea por fase y
    política "cantidades entregadas"; marcas la cantidad entregada de cada fase
    al terminarla y "Crear factura" solo factura lo entregado. Para el
@@ -75,7 +87,8 @@ Resumen de las 3 ideas:
 ├── docker-compose.yml   # Odoo + PostgreSQL (versiones en odoo:latest y postgres:15)
 ├── odoo.conf            # configuración de Odoo (rutas de addons, conexión BD)
 ├── extra-addons/
-│   └── contract/        # repo OCA/contract (rama 19.0) con el módulo de contratos
+│   ├── contract/        # repo OCA/contract (rama 19.0) con el módulo de contratos
+│   └── iducdev_ve_fiscal/  # módulo propio: datos fiscales SENIAT (N° de control, fecha/hora, total en VES)
 ├── data/                # ⚠️ TUS DATOS REALES (base de datos + filestore) NO se versiona
 │   ├── db/              #   PostgreSQL completo
 │   └── odoo/            #   filestore (PDFs, adjuntos, logos)
@@ -83,8 +96,14 @@ Resumen de las 3 ideas:
 ├── start.sh / stop.sh   # arranque y parada
 ├── backup.sh / restore.sh
 ├── README.md
-└── GUIA-CLIENTE.md      # playbook de ventas: lead → cotización → factura
+├── GUIA-CLIENTE.md      # playbook de ventas: lead → cotización → factura
+├── CUMPLIMIENTO-SENIAT.md  # checklist de la Providencia SNAT/2026/00093
+└── gaceta-43.484.pdf    # Gaceta Oficial N° 43.484 (escaneada, sin capa de texto)
 ```
+
+> `addons_path` incluye **`/mnt/extra-addons`** además de
+> `/mnt/extra-addons/contract`, así que cualquier módulo propio que pongas
+> directamente en `extra-addons/` se detecta sin tocar `odoo.conf`.
 
 ## Añadir más módulos de la OCA
 
@@ -95,10 +114,11 @@ git clone --depth 1 --branch 19.0 https://github.com/OCA/<repo> extra-addons/<re
 rm -rf extra-addons/<repo>/.git     # opcional: dejar solo el código
 ```
 
-Y añade la ruta al `addons_path` en `odoo.conf`, separada por coma:
+`/mnt/extra-addons` ya está en el `addons_path`, así que los módulos que
+queden en `extra-addons/` se detectan solos. Si prefieres ser explícito:
 
 ```ini
-addons_path = /mnt/extra-addons/contract,/mnt/extra-addons/<repo>
+addons_path = /mnt/extra-addons/contract,/mnt/extra-addons,/mnt/extra-addons/<repo>
 ```
 
 Reinicia con `./start.sh` (o `docker compose restart odoo`) y activa el módulo
@@ -111,6 +131,10 @@ desde Aplicaciones.
   (por ejemplo `image: odoo:19.0`) y reinicia.
 - **Módulo de contratos**: si `contract` no carga, comprueba que la rama del repo
   OCA coincide con la versión mayor de Odoo (rama 19.0 para Odoo 19).
+- **Módulo fiscal `iducdev_ve_fiscal`**: no emite documentos fiscales; solo
+  registra los datos que devuelve el portal del SENIAT. Para activarlo, ponlo
+  en `extra-addons/`, reinicia con `./start.sh` y actualiza la lista de
+  aplicaciones. Detalles en `extra-addons/iducdev_ve_fiscal/README.md`.
 - **Contraseña maestra**: cambia `admin_passwd` en `odoo.conf` si expones el
   puerto fuera de tu equipo.
 - **Bases de datos de prueba con demo**: desde el gestor de bases de datos puedes
